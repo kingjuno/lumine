@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+*.dll
+*.dylib
+*.pyd
+
+# C++ object and shared object files
+*.o
+*.out
+*.a
+*.lo
+*.la
+*.lai
+*.mod
+
+# Build artifacts
+/build/
+/dist/
+/lumine.egg-info/
+/*.egg
+/*.egg-info
+
+# Editor / IDE files
+*.swp
+*.swo
+*.idea/
+.vscode/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+/tests/__pycache__/
