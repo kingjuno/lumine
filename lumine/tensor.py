@@ -1,6 +1,5 @@
 import ctypes
 import os
-from lumine.utils import capture_output
 
 # TODO
 # 1. Fix Tensor print by returning from cpp funtion
@@ -12,7 +11,7 @@ VALID_DEVICES = {"cpu", "gpu"}
 
 
 class _TensorLib:
-    _build_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../build")
+    _build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build"))
     _lib_path = os.path.join(_build_dir, "tensor.so")
     _lib = ctypes.CDLL(_lib_path)
 
