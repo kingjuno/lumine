@@ -1,12 +1,9 @@
 #include <iostream>
 #include <string>
-#include <cstring>
 #include <stdexcept>
-#include<vector>
+#include <vector>
 #include <sstream>
 #include <cstring>
-#include <cstring>  // For std::strcpy
-#include <string>   // For std::string
 
 // TODO
 // 1. Tensor class              Progressing
