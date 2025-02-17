@@ -35,3 +35,6 @@ Thumbs.db
 
 # Test artifacts
 /tests/__pycache__/
+
+# Virtual environment
+/lumine_env/
