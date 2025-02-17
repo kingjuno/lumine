@@ -5,6 +5,7 @@ import os
 # 1. Fix Tensor print by returning from cpp funtion
 # 2. slicing
 # 3. Free C Tensor Memory
+# 4. Cache str representation and free memory
 
 VALID_DTYPES = {"float32", "int32"}
 VALID_DEVICES = {"cpu", "gpu"}
@@ -34,6 +35,8 @@ class _TensorLib:
             ctypes.c_int,
         ]
         cls._lib.get_item.restype = ctypes.c_void_p
+        cls._lib.get_shape.argtypes = [ctypes.c_void_p]
+        cls._lib.get_shape.restype = ctypes.POINTER(ctypes.c_int)
 
     @classmethod
     def get_library(cls):
@@ -72,19 +75,20 @@ class Tensor:
             self.device = device
             self.dtype = dtype
             self.ndim = ndim
+            self._garbage_shape = True
             return
 
         if data is None:
             raise ValueError("Data cannot be None when creating a new tensor.")
 
-        _data, shape = self._flatten(data)
-        if not _data or not shape:
+        _data, self._shape = self._flatten(data)
+        if not _data or not self._shape:
             raise ValueError("Tensor and shape cannot be empty.")
 
         self.device = device.encode("utf-8") if isinstance(device, str) else device
         self.dtype = dtype.encode("utf-8") if isinstance(dtype, str) else dtype
 
-        self.ndim = len(shape)
+        self.ndim = len(self._shape)
 
         if dtype not in VALID_DTYPES:
             raise ValueError(f"Invalid dtype: {dtype}. Supported: {VALID_DTYPES}")
@@ -92,7 +96,7 @@ class Tensor:
             raise ValueError(f"Invalid device: {device}. Supported: {VALID_DEVICES}")
 
         _data_array = (ctypes.c_float * len(_data))(*_data)
-        _shape_array = (ctypes.c_int * len(shape))(*shape)
+        _shape_array = (ctypes.c_int * len(self._shape))(*self._shape)
 
         self._tensor = self._lib.create_tensor(
             _data_array, _shape_array, self.ndim, self.device, self.dtype
@@ -100,15 +104,21 @@ class Tensor:
         if not self._tensor:
             raise RuntimeError("Failed to create Tensor.")
 
+        self._garbage_shape = False  # to avoid recomputing shape
+
     def __str__(self) -> None:
         """
         Print tensor info.
         """
-        arr = ctypes.cast(self._lib.print_tensor(self._tensor), ctypes.c_char_p).value.decode('utf-8')
+        arr = ctypes.cast(
+            self._lib.print_tensor(self._tensor), ctypes.c_char_p
+        ).value.decode("utf-8")
         return arr
 
     def __repr__(self):
-        arr = ctypes.cast(self._lib.print_tensor(self._tensor), ctypes.c_char_p).value.decode('utf-8')
+        arr = ctypes.cast(
+            self._lib.print_tensor(self._tensor), ctypes.c_char_p
+        ).value.decode("utf-8")
         return f"array({arr}, dtype: {self.dtype.decode()}, device: {self.device.decode()})"
 
     @staticmethod
@@ -165,3 +175,14 @@ class Tensor:
             device=self.device,
             ndim=self.ndim - len(indices),
         )
+
+    @property
+    def shape(self):
+        if self._garbage_shape == False:
+            return self._shape
+        else:
+            tensor_shape = self._lib.get_shape(self._tensor)
+            shape = [tensor_shape[i] for i in range(self.ndim)]
+            self._shape = tuple(shape)
+            self._garbage_shape = False
+            return self._shape

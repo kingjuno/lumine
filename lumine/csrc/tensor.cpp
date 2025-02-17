@@ -168,8 +168,6 @@ extern "C"
         return nullptr;
     }
 
-
-
     const char* print_tensor(BaseTensor *tensor)
     {
         std::string array = tensor->print();  // Get the string from tensor
@@ -245,17 +243,9 @@ extern "C"
             }
         }
     }
-}
 
-int main()
-{
-    int shape[2] = {2, 3};
-    float data[6] = {1.2, 2.0, 3.0, 4.7, 5.0, 6.0};
-    // Fix: use DType::INT32 since we are using int data.
-    auto tensor = create_tensor(data, shape, 2, "cpu", "int32");
-    print_tensor(tensor);
-    int indices[1] = {1};
-    auto tensor1 = get_item(tensor, indices, 1);
-    print_tensor(tensor1); // Now prints the correct data
+    int *get_shape(BaseTensor *tensor)
+    {
+        return const_cast<int *>(tensor->get_shape());
+    }
 }
-
