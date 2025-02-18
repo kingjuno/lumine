@@ -37,6 +37,8 @@ class _TensorLib:
         cls._lib.get_item.restype = ctypes.c_void_p
         cls._lib.get_shape.argtypes = [ctypes.c_void_p]
         cls._lib.get_shape.restype = ctypes.POINTER(ctypes.c_int)
+        cls._lib.astype.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        cls._lib.astype.restype = ctypes.c_void_p
 
     @classmethod
     def get_library(cls):
@@ -174,6 +176,28 @@ class Tensor:
             dtype=self.dtype,
             device=self.device,
             ndim=self.ndim - len(indices),
+        )
+    def astype(self , target_dtype): 
+        """
+        cast the tensor to the new dtype
+        
+        """
+
+        if target_dtype not in VALID_DTYPES: 
+            raise ValueError(f"Invalid targer dtype: {target_dtype}")
+        if self.dtype.decode() == target_dtype: 
+            return self
+        target_dtype = target_dtype.encode('utf-8')
+        tensor_ptr = self._lib.astype(self._tensor, target_dtype)
+
+        if not tensor_ptr:
+            raise RuntimeError(f"Failed to cast tensor to {target_dtype.decode()}.")
+
+        return Tensor(
+            _tensor=tensor_ptr,
+            dtype=target_dtype,
+            device=self.device,
+            ndim=self.ndim,
         )
 
     @property
