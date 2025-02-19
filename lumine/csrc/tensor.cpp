@@ -2,8 +2,8 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
-#include <sstream>
 #include <cstring>
+#include "utils/stream.h"
 
 // TODO
 // 1. Tensor class              Progressing
@@ -46,7 +46,7 @@ class BaseTensor
 {
 public:
     virtual std::string print() const = 0; // Existing virtual function
-    virtual BaseTensor* astype(DType target_type) = 0; 
+    virtual BaseTensor* astype(DType target_type) = 0;
     // Virtual functions to access shape and ndimDTypeToString
     virtual const int *get_shape() const = 0;
     virtual const int *get_strides() const = 0;
@@ -119,7 +119,7 @@ public:
     }
 
     std::string print_recursive(const T* data, const int* shape, const int* strides, int ndim, int dim = 0, int offset = 0) const {
-        std::ostringstream oss;
+        OStream oss(6);
         if (dim == ndim - 1) {
             oss << "[";
             for (int i = 0; i < shape[dim]; i++) {
@@ -142,8 +142,8 @@ public:
         return print_recursive(data_ptr, shape, strides, ndim);
     }
 
-    BaseTensor* astype(DType target_type) override{
-      
+    BaseTensor* astype(DType target_type) override {
+
         if(target_type == DType::FLOAT32)
         {
             float *new_data = new float[_linear_size];
@@ -151,7 +151,7 @@ public:
             {
                 new_data[i] = static_cast<float>(data_ptr[i]);
             }
-            return new Tensor<float>(new_data, shape , ndim, device, DType::FLOAT32);
+            return new Tensor<float>(new_data, shape, ndim, device, DType::FLOAT32);
 
         }
         if(target_type == DType::INT32)
@@ -161,10 +161,10 @@ public:
             {
                 new_data[i] = static_cast<int>(data_ptr[i]);
             }
-            return new Tensor<int>(new_data, shape , ndim, device, DType::INT32);
+            return new Tensor<int>(new_data, shape, ndim, device, DType::INT32);
 
         }
-        
+
         return nullptr;
     }
 
@@ -273,7 +273,7 @@ extern "C"
 
     BaseTensor* astype(BaseTensor *tensor, const char*  target_type)
     {
-        if (std::strcmp(target_type, "float32") == 0) 
+        if (std::strcmp(target_type, "float32") == 0)
             return tensor->astype(DType::FLOAT32);
         if (std::strcmp(target_type, "int32") == 0 )
             return tensor->astype(DType::INT32);

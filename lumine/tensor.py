@@ -13,7 +13,7 @@ VALID_DEVICES = {"cpu", "gpu"}
 
 class _TensorLib:
     _build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build"))
-    _lib_path = os.path.join(_build_dir, "tensor.so")
+    _lib_path = os.path.join(_build_dir, "lumine.so")
     _lib = ctypes.CDLL(_lib_path)
 
     @classmethod
