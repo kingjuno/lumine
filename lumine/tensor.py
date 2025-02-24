@@ -87,7 +87,7 @@ class Tensor:
 
         self.device = device.encode("utf-8") if isinstance(device, str) else device
         self.dtype = dtype.encode("utf-8") if isinstance(dtype, str) else dtype
-
+       
         self.ndim = len(self._shape)
 
         if dtype not in VALID_DTYPES:
@@ -95,7 +95,13 @@ class Tensor:
         if device not in VALID_DEVICES:
             raise ValueError(f"Invalid device: {device}. Supported: {VALID_DEVICES}")
 
-        _data_array = (ctypes.c_float * len(_data))(*_data)
+        if dtype =="float32":
+            _data_array = (ctypes.c_float * len(_data))(*_data)
+        if dtype =="int32":
+            _data_array = (ctypes.c_int32* len(_data))(*_data)
+        else:
+            _data_array = (ctypes.c_float * len(_data))(*_data)
+
         _shape_array = (ctypes.c_int * len(self._shape))(*self._shape)
 
         self._tensor = self._lib.create_tensor(
@@ -167,6 +173,7 @@ class Tensor:
                     ctypes.c_float if self.dtype == b"float32" else ctypes.c_int32
                 ),
             )
+            
             return scalar_ptr.contents.value
 
         return Tensor(
