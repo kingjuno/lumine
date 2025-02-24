@@ -4,8 +4,8 @@
 #include <vector>
 #include <cstring>
 #include "tensor.h"
-#include "utils/stream.h"  // Assuming this exists
-#include "cpu/math.h"          // Assuming this exists
+#include "utils/stream.h"
+#include "cpu/math.h"
 
 inline std::string DTypeToString(DType dt) {
     switch (dt) {
@@ -261,6 +261,31 @@ extern "C" {
             return result;
         }
         else {
+            throw std::runtime_error("Unsupported dtype!");
+        }
+    }
+
+    BaseTensor *reshape(BaseTensor *tensor, int *new_shape, int ndim) {
+        int old_dim = tensor->get_ndim();
+        int old_size = tensor->get_linear_size();
+        int new_size = 1;
+        for (int i = 0; i < ndim; i++) {
+            new_size *= new_shape[i];
+        }
+        if (old_size != new_size) {
+            throw std::runtime_error("Total size of new shape must be unchanged!");
+        }
+        void *data_ptr = tensor->get_data_ptr();
+        DType dtype = tensor->get_dtype_enum();
+        if (dtype == DType::FLOAT32) {
+            float *new_data = new float[new_size];
+            memcpy(new_data, static_cast<float *>(data_ptr), new_size * sizeof(float));
+            return new Tensor<float>(new_data, new_shape, ndim, "cpu", DType::FLOAT32);
+        } else if (dtype == DType::INT32) {
+            int *new_data = new int[new_size];
+            memcpy(new_data, static_cast<int *>(data_ptr), new_size * sizeof(int));
+            return new Tensor<int>(new_data, new_shape, ndim, "cpu", DType::INT32);
+        } else {
             throw std::runtime_error("Unsupported dtype!");
         }
     }

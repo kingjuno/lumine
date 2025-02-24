@@ -268,3 +268,27 @@ class tensor:
         return tensor(
             _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
         )
+
+    def reshape(self, *shape):
+        """
+        Reshape the tensor to the given shape.
+        Accepts shape as individual integers, a list, or a tuple.
+        """
+        if len(shape) == 1 and isinstance(shape[0], (list, tuple)):
+            shape = tuple(shape[0])
+        else:
+            shape = tuple(shape)
+
+        if len(shape) == 0:
+            raise ValueError("Shape cannot be empty.")
+
+        shape_array = (ctypes.c_int * len(shape))(*shape)
+
+        tensor_ptr = self._lib.reshape(self._tensor, shape_array, len(shape))
+
+        if not tensor_ptr:
+            raise RuntimeError("Failed to reshape tensor.")
+
+        return tensor(
+            _tensor=tensor_ptr, dtype=self.dtype, device=self.device, ndim=len(shape)
+        )
