@@ -39,15 +39,15 @@ class _TensorLib:
         cls._lib.get_shape.restype = ctypes.POINTER(ctypes.c_int)
         cls._lib.astype.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         cls._lib.astype.restype = ctypes.c_void_p
-        cls._lib.get_data_ptr.argtypes =[ctypes.c_void_p]
-        cls._lib.get_data_ptr.restype =ctypes.c_void_p
+        cls._lib.get_data_ptr.argtypes = [ctypes.c_void_p]
+        cls._lib.get_data_ptr.restype = ctypes.c_void_p
 
     @classmethod
     def get_library(cls):
         return cls._lib
 
 
-class Tensor:
+class tensor:
     """
     A Python wrapper for a C-based Tensor implementation.
     """
@@ -91,7 +91,7 @@ class Tensor:
 
         self.device = device.encode("utf-8") if isinstance(device, str) else device
         self.dtype = dtype.encode("utf-8") if isinstance(dtype, str) else dtype
-       
+
         self.ndim = len(self._shape)
 
         if dtype not in VALID_DTYPES:
@@ -99,12 +99,12 @@ class Tensor:
         if device not in VALID_DEVICES:
             raise ValueError(f"Invalid device: {device}. Supported: {VALID_DEVICES}")
 
-        if dtype =="float32":
+        if dtype == "float32":
             _data_array = (ctypes.c_float * len(_data))(*_data)
-        if dtype =="int32":
-            _data_array = (ctypes.c_int32* len(_data))(*_data)
+        elif dtype == "int32":
+            _data_array = (ctypes.c_int32 * len(_data))(*_data)
         else:
-            _data_array = (ctypes.c_float * len(_data))(*_data)
+            ...
 
         _shape_array = (ctypes.c_int * len(self._shape))(*self._shape)
 
@@ -166,48 +166,50 @@ class Tensor:
         index_array = (ctypes.c_int * self.ndim)(*indices)
 
         try:
-            tensor = self._lib.get_item(self._tensor, index_array, len(indices))
+            _tensor = self._lib.get_item(self._tensor, index_array, len(indices))
         except Exception as e:
             raise RuntimeError(f"Failed to get tensor item: {e}")
 
         if len(indices) == self.ndim:
             scalar_ptr = ctypes.cast(
-                tensor,
+                _tensor,
                 ctypes.POINTER(
                     ctypes.c_float if self.dtype == b"float32" else ctypes.c_int32
                 ),
             )
-            
+
             return scalar_ptr.contents.value
 
-        return Tensor(
-            _tensor=tensor,
+        return tensor(
+            _tensor=_tensor,
             dtype=self.dtype,
             device=self.device,
             ndim=self.ndim - len(indices),
         )
-    def astype(self , target_dtype): 
+
+    def astype(self, target_dtype):
         """
         cast the tensor to the new dtype
-        
+
         """
 
-        if target_dtype not in VALID_DTYPES: 
+        if target_dtype not in VALID_DTYPES:
             raise ValueError(f"Invalid targer dtype: {target_dtype}")
-        if self.dtype.decode() == target_dtype: 
+        if self.dtype.decode() == target_dtype:
             return self
-        target_dtype = target_dtype.encode('utf-8')
+        target_dtype = target_dtype.encode("utf-8")
         tensor_ptr = self._lib.astype(self._tensor, target_dtype)
 
         if not tensor_ptr:
             raise RuntimeError(f"Failed to cast tensor to {target_dtype.decode()}.")
 
-        return Tensor(
+        return tensor(
             _tensor=tensor_ptr,
             dtype=target_dtype,
             device=self.device,
             ndim=self.ndim,
         )
+
     def tolist(self):
         """
         convert tensor to a python list
@@ -216,11 +218,11 @@ class Tensor:
         data_ptr = self._lib.get_data_ptr(self._tensor)
         if not data_ptr:
             raise RuntimeError("Failed to get tensor data.")
-        
-        num_element =1; 
+
+        num_element = 1
 
         for dim in self.shape:
-            num_element*=dim
+            num_element *= dim
 
         if self.dtype == b"float32":
             array_type = ctypes.POINTER(ctypes.c_float)
@@ -230,18 +232,22 @@ class Tensor:
             raise ValueError("Unsupported dtype.")
 
         c_array = ctypes.cast(data_ptr, array_type)
- 
-        flat_list = [c_array[i] for i in range(num_element)]
-        
-        #reccurive function to reshape the list
-        def reshape(flat, shape):
-            if len(shape)==1:
-                return flat[:shape[0]]
-            sub_size = int(len(flat)/ shape[0])
 
-            return [reshape(flat[i* sub_size:(i+1)* sub_size], shape[1:])for i in range(shape[0])] 
-        
+        flat_list = [c_array[i] for i in range(num_element)]
+
+        # reccurive function to reshape the list
+        def reshape(flat, shape):
+            if len(shape) == 1:
+                return flat[: shape[0]]
+            sub_size = int(len(flat) / shape[0])
+
+            return [
+                reshape(flat[i * sub_size : (i + 1) * sub_size], shape[1:])
+                for i in range(shape[0])
+            ]
+
         return reshape(flat_list, list(self.shape))
+
     @property
     def shape(self):
         if self._garbage_shape == False:
