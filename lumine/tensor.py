@@ -14,6 +14,8 @@ VALID_DEVICES = {"cpu", "gpu"}
 class _TensorLib:
     _build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build"))
     _lib_path = os.path.join(_build_dir, "lumine.so")
+    if not os.path.exists(_lib_path):
+        raise RuntimeError(f"Library not found at: {_lib_path}")
     _lib = ctypes.CDLL(_lib_path)
 
     @classmethod
@@ -91,7 +93,7 @@ class tensor:
 
         self.device = device.encode("utf-8") if isinstance(device, str) else device
         self.dtype = dtype.encode("utf-8") if isinstance(dtype, str) else dtype
-       
+
         self.ndim = len(self._shape)
 
         if dtype not in VALID_DTYPES:
@@ -258,3 +260,11 @@ class tensor:
             self._shape = tuple(shape)
             self._garbage_shape = False
             return self._shape
+
+    def __add__(self, other):
+        _tensor = self._lib.tensor_add(self._tensor, other._tensor)
+        if not _tensor:
+            raise RuntimeError("Failed to add tensors.")
+        return tensor(
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+        )
