@@ -39,6 +39,8 @@ class _TensorLib:
         cls._lib.get_shape.restype = ctypes.POINTER(ctypes.c_int)
         cls._lib.astype.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         cls._lib.astype.restype = ctypes.c_void_p
+        cls._lib.get_data_ptr.argtypes =[ctypes.c_void_p]
+        cls._lib.get_data_ptr.restype =ctypes.c_void_p
 
     @classmethod
     def get_library(cls):
@@ -199,7 +201,40 @@ class Tensor:
             device=self.device,
             ndim=self.ndim,
         )
+    def tolist(self):
+        """
+        convert tensor to a python list
+        """
 
+        data_ptr = self._lib.get_data_ptr(self._tensor)
+        if not data_ptr:
+            raise RuntimeError("Failed to get tensor data.")
+        
+        num_element =1; 
+
+        for dim in self.shape:
+            num_element*=dim
+
+        if self.dtype == b"float32":
+            array_type = ctypes.POINTER(ctypes.c_float)
+        elif self.dtype == b"int32":
+            array_type = ctypes.POINTER(ctypes.c_int32)
+        else:
+            raise ValueError("Unsupported dtype.")
+
+        c_array = ctypes.cast(data_ptr, array_type)
+ 
+        flat_list = [c_array[i] for i in range(num_element)]
+        
+        #reccurive function to reshape the list
+        def reshape(flat, shape):
+            if len(shape)==1:
+                return flat[:shape[0]]
+            sub_size = int(len(flat)/ shape[0])
+
+            return [reshape(flat[i* sub_size:(i+1)* sub_size], shape[1:])for i in range(shape[0])] 
+        
+        return reshape(flat_list, list(self.shape))
     @property
     def shape(self):
         if self._garbage_shape == False:

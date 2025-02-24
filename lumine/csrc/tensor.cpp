@@ -279,4 +279,9 @@ extern "C"
             return tensor->astype(DType::INT32);
         throw std::runtime_error("Unsupported dtype!");
     }
+
+    void* get_data_ptr(BaseTensor* tensor)
+    {
+        return tensor->get_data_ptr();
+    }
 }
