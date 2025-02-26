@@ -49,6 +49,7 @@ class _TensorLib:
         cls._lib.tensor_sub.restype = ctypes.c_void_p
         cls._lib.tensor_mul.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         cls._lib.tensor_mul.restype = ctypes.c_void_p
+
         cls._lib.reshape.argtypes = [
             ctypes.c_void_p,
             ctypes.POINTER(ctypes.c_int),
