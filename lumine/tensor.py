@@ -45,6 +45,8 @@ class _TensorLib:
         cls._lib.get_data_ptr.restype = ctypes.c_void_p
         cls._lib.tensor_add.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         cls._lib.tensor_add.restype = ctypes.c_void_p
+        cls._lib.tensor_sub.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        cls._lib.tensor_sub.restype = ctypes.c_void_p
         cls._lib.reshape.argtypes = [
             ctypes.c_void_p,
             ctypes.POINTER(ctypes.c_int),
@@ -273,6 +275,14 @@ class tensor:
         _tensor = self._lib.tensor_add(self._tensor, other._tensor)
         if not _tensor:
             raise RuntimeError("Failed to add tensors.")
+        return tensor(
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+        )
+    
+    def __sub__(self, other):
+        _tensor = self._lib.tensor_sub(self._tensor, other._tensor)
+        if not _tensor:
+            raise RuntimeError("Failed to subtract tensors.")
         return tensor(
             _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
         )

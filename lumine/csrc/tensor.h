@@ -66,6 +66,7 @@ extern "C" {
     BaseTensor* astype(BaseTensor* tensor, const char* target_type);
     void* get_data_ptr(BaseTensor* tensor);
     BaseTensor *tensor_add(const BaseTensor* tensor1, const BaseTensor* tensor2);
+    BaseTensor *tensor_sub(const BaseTensor* tensor1, const BaseTensor* tensor2);
     BaseTensor *reshape(BaseTensor* tensor, int* shape, int ndim);
 }
 

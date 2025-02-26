@@ -32,3 +32,14 @@ def test_add(shape):
     _tensor2 = tensor(_list2, "int32")
     _tensor = (_tensor1 + _tensor2).tolist()
     assert (np.array(_list1)+np.array(_list2)).tolist()==_tensor
+
+@pytest.mark.parametrize("shape", [(5, 5, 5),(100,99,1,30),(200,1,99)])
+def test_sub(shape):
+    # use numpy to tolist and equate the result
+    import numpy as np
+    _list1 = generate_nd_list(shape, min_val=0, max_val=100)
+    _list2 = generate_nd_list(shape, min_val=0, max_val=100)
+    _tensor1 = tensor(_list1, "int32")
+    _tensor2 = tensor(_list2, "int32")
+    _tensor = (_tensor1 - _tensor2).tolist()
+    assert (np.array(_list1)-np.array(_list2)).tolist()==_tensor
