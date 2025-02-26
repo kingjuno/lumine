@@ -41,6 +41,14 @@ class _TensorLib:
         cls._lib.astype.restype = ctypes.c_void_p
         cls._lib.get_data_ptr.argtypes = [ctypes.c_void_p]
         cls._lib.get_data_ptr.restype = ctypes.c_void_p
+        cls._lib.tensor_add.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        cls._lib.tensor_add.restype = ctypes.c_void_p
+        cls._lib.reshape.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+        ]
+        cls._lib.reshape.restype = ctypes.c_void_p
 
     @classmethod
     def get_library(cls):
