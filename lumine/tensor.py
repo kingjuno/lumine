@@ -14,6 +14,8 @@ VALID_DEVICES = {"cpu", "gpu"}
 class _TensorLib:
     _build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build"))
     _lib_path = os.path.join(_build_dir, "lumine.so")
+    if not os.path.exists(_lib_path):
+        raise RuntimeError(f"Library not found at: {_lib_path}")
     _lib = ctypes.CDLL(_lib_path)
 
     @classmethod
@@ -43,6 +45,8 @@ class _TensorLib:
         cls._lib.get_data_ptr.restype = ctypes.c_void_p
         cls._lib.tensor_add.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         cls._lib.tensor_add.restype = ctypes.c_void_p
+        cls._lib.tensor_sub.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        cls._lib.tensor_sub.restype = ctypes.c_void_p
         cls._lib.reshape.argtypes = [
             ctypes.c_void_p,
             ctypes.POINTER(ctypes.c_int),
@@ -99,7 +103,7 @@ class tensor:
 
         self.device = device.encode("utf-8") if isinstance(device, str) else device
         self.dtype = dtype.encode("utf-8") if isinstance(dtype, str) else dtype
-       
+
         self.ndim = len(self._shape)
 
         if dtype not in VALID_DTYPES:
@@ -266,3 +270,43 @@ class tensor:
             self._shape = tuple(shape)
             self._garbage_shape = False
             return self._shape
+
+    def __add__(self, other):
+        _tensor = self._lib.tensor_add(self._tensor, other._tensor)
+        if not _tensor:
+            raise RuntimeError("Failed to add tensors.")
+        return tensor(
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+        )
+    
+    def __sub__(self, other):
+        _tensor = self._lib.tensor_sub(self._tensor, other._tensor)
+        if not _tensor:
+            raise RuntimeError("Failed to subtract tensors.")
+        return tensor(
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+        )
+
+    def reshape(self, *shape):
+        """
+        Reshape the tensor to the given shape.
+        Accepts shape as individual integers, a list, or a tuple.
+        """
+        if len(shape) == 1 and isinstance(shape[0], (list, tuple)):
+            shape = tuple(shape[0])
+        else:
+            shape = tuple(shape)
+
+        if len(shape) == 0:
+            raise ValueError("Shape cannot be empty.")
+
+        shape_array = (ctypes.c_int * len(shape))(*shape)
+
+        tensor_ptr = self._lib.reshape(self._tensor, shape_array, len(shape))
+
+        if not tensor_ptr:
+            raise RuntimeError("Failed to reshape tensor.")
+
+        return tensor(
+            _tensor=tensor_ptr, dtype=self.dtype, device=self.device, ndim=len(shape)
+        )
