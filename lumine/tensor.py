@@ -278,7 +278,7 @@ class tensor:
         if not _tensor:
             raise RuntimeError("Failed to add tensors.")
         return tensor(
-            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
         )
     
     def __sub__(self, other):
