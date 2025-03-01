@@ -312,6 +312,52 @@ extern "C" {
             throw std::runtime_error("Unsupported dtype!");
         }
     }
+
+    BaseTensor *tensor_mul(const BaseTensor* _this, const BaseTensor* _other)
+    {
+        DType dtype1 = _this->get_dtype_enum();
+        DType dtype2 = _other->get_dtype_enum();
+
+        if(dtype1 == DType::FLOAT32 || dtype2 == DType::FLOAT32)
+        {
+            Tensor<float>* t1 = dynamic_cast<Tensor<float>*>(const_cast<BaseTensor*>(_this));
+            Tensor<float>* t2 = dynamic_cast<Tensor<float>*>(const_cast<BaseTensor*>(_other));
+            
+            if (!t1 || !t2) {
+                throw std::runtime_error("Type mismatch in tensor_mul!");
+            }
+            float* data_ptr = new float[t1->get_linear_size()];
+            int* shape = new int[t1->get_ndim()];
+
+            memcpy(data_ptr, t1->get_data_ptr(), t1->get_linear_size()*sizeof(float));
+            memcpy(shape, t1->get_shape(), t1->get_ndim()*sizeof(int));
+
+            Tensor<float>* result = new Tensor<float>(data_ptr, shape, t1->get_ndim(),"cpu", DType::FLOAT32);
+            cpu_tensor_mul(*result, *t2);
+            return result;
+        
+        }
+        else if(dtype1 == DType::INT32 || dtype2 == DType::INT32){
+            Tensor<int>* t1 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*> (_this));
+            Tensor<int>* t2 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*> (_other));
+            
+            if (!t1 || !t2) {
+                throw std::runtime_error("Type mismatch in tensor_mul!");
+            }
+            int* data_ptr = new int[t1->get_linear_size()];
+            int* shape = new int[t1->get_ndim()];
+
+            memcpy(data_ptr, t1->get_data_ptr(), t1->get_linear_size()*sizeof(int));
+            memcpy(shape, t1->get_shape(), t1->get_ndim()*sizeof(int));
+
+            Tensor<int>* result = new Tensor<int>(data_ptr, shape, t1->get_ndim(),"cpu", DType::INT32);
+            cpu_tensor_mul(*result, *t2);
+            return result;
+        }
+        else {
+            throw std::runtime_error("Unsupported dtype!");
+        }
+    }
     BaseTensor *reshape(BaseTensor *tensor, int *new_shape, int ndim) {
         int old_dim = tensor->get_ndim();
         int old_size = tensor->get_linear_size();

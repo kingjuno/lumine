@@ -47,6 +47,8 @@ class _TensorLib:
         cls._lib.tensor_add.restype = ctypes.c_void_p
         cls._lib.tensor_sub.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         cls._lib.tensor_sub.restype = ctypes.c_void_p
+        cls._lib.tensor_mul.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        cls._lib.tensor_mul.restype = ctypes.c_void_p
         cls._lib.reshape.argtypes = [
             ctypes.c_void_p,
             ctypes.POINTER(ctypes.c_int),
@@ -287,6 +289,13 @@ class tensor:
             _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
         )
 
+    def __mul__(self, other):
+        _tensor = self._lib.tensor_mul(self._tensor, other._tensor)
+        if not _tensor:
+            raise RuntimeError("Failed to multiply tensors.")
+        return tensor(
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+        )
     def reshape(self, *shape):
         """
         Reshape the tensor to the given shape.

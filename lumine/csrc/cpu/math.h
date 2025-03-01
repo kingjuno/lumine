@@ -8,4 +8,6 @@ void cpu_tensor_add(Tensor<T>& out, Tensor<T>& t2);
 template <typename T>
 void cpu_tensor_sub(Tensor<T>& out, Tensor<T>& t2);
 
+template <typename T>
+void cpu_tensor_mul(Tensor<T>& out, Tensor<T>& t2);
 #endif // CPU_H
