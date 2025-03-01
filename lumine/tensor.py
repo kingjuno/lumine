@@ -47,6 +47,8 @@ class _TensorLib:
         cls._lib.tensor_add.restype = ctypes.c_void_p
         cls._lib.tensor_sub.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         cls._lib.tensor_sub.restype = ctypes.c_void_p
+        cls._lib.get_last_error.argtypes = []
+        cls._lib.get_last_error.restype = ctypes.c_char_p
         cls._lib.reshape.argtypes = [
             ctypes.c_void_p,
             ctypes.POINTER(ctypes.c_int),
@@ -123,8 +125,7 @@ class tensor:
         self._tensor = self._lib.create_tensor(
             _data_array, _shape_array, self.ndim, self.device, self.dtype
         )
-        if not self._tensor:
-            raise RuntimeError("Failed to create Tensor.")
+        self.check_error(self._tensor)
 
         self._garbage_shape = False  # to avoid recomputing shape
 
@@ -142,6 +143,14 @@ class tensor:
             self._lib.print_tensor(self._tensor), ctypes.c_char_p
         ).value.decode("utf-8")
         return f"array({arr}, dtype: {self.dtype.decode()}, device: {self.device.decode()})"
+
+    def check_error(self, tensor):
+        if not tensor:
+            error_msg = self._lib.get_last_error()
+            if error_msg:
+                raise RuntimeError(error_msg.decode("utf-8"))
+            else:
+                raise RuntimeError("Unknown error in astype function")
 
     @staticmethod
     def _flatten(lst):
@@ -176,11 +185,8 @@ class tensor:
             raise ValueError("Only integer indexing is currently supported.")
 
         index_array = (ctypes.c_int * self.ndim)(*indices)
-
-        try:
-            _tensor = self._lib.get_item(self._tensor, index_array, len(indices))
-        except Exception as e:
-            raise RuntimeError(f"Failed to get tensor item: {e}")
+        _tensor = self._lib.get_item(self._tensor, index_array, len(indices))
+        self.check_error(_tensor)
 
         if len(indices) == self.ndim:
             scalar_ptr = ctypes.cast(
@@ -211,9 +217,7 @@ class tensor:
             return self
         target_dtype = target_dtype.encode("utf-8")
         tensor_ptr = self._lib.astype(self._tensor, target_dtype)
-
-        if not tensor_ptr:
-            raise RuntimeError(f"Failed to cast tensor to {target_dtype.decode()}.")
+        self.check_error(tensor_ptr)
 
         return tensor(
             _tensor=tensor_ptr,
@@ -228,8 +232,7 @@ class tensor:
         """
 
         data_ptr = self._lib.get_data_ptr(self._tensor)
-        if not data_ptr:
-            raise RuntimeError("Failed to get tensor data.")
+        self.check_error(data_ptr)
 
         num_element = 1
 
@@ -273,16 +276,16 @@ class tensor:
 
     def __add__(self, other):
         _tensor = self._lib.tensor_add(self._tensor, other._tensor)
-        if not _tensor:
-            raise RuntimeError("Failed to add tensors.")
+        self.check_error(_tensor)
+
         return tensor(
             _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
         )
-    
+
     def __sub__(self, other):
         _tensor = self._lib.tensor_sub(self._tensor, other._tensor)
-        if not _tensor:
-            raise RuntimeError("Failed to subtract tensors.")
+        self.check_error(_tensor)
+
         return tensor(
             _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
         )
@@ -304,9 +307,7 @@ class tensor:
 
         tensor_ptr = self._lib.reshape(self._tensor, shape_array, len(shape))
 
-        if not tensor_ptr:
-            raise RuntimeError("Failed to reshape tensor.")
-
+        self.check_error(tensor_ptr)
         return tensor(
             _tensor=tensor_ptr, dtype=self.dtype, device=self.device, ndim=len(shape)
         )
