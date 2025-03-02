@@ -497,4 +497,49 @@ extern "C" {
         return last_error.empty() ? nullptr : last_error.c_str();
     }
 
+    BaseTensor *ones(int *shape, int ndim, const char *device, const char *dtype) {
+        try {
+            int _linear_size = 1;
+            for (int i = 0; i < ndim; i++) {
+                _linear_size *= shape[i];
+            }
+            if (std::strcmp(dtype, "float32") == 0) {
+                float *data = new float[_linear_size];
+                std::fill(data, data + _linear_size, 1.0f);
+                return new Tensor<float>(data, shape, ndim, device, DType::FLOAT32);
+            } else if (std::strcmp(dtype, "int32") == 0) {
+                int *data = new int[_linear_size];
+                std::fill(data, data + _linear_size, 1);
+                return new Tensor<int>(data, shape, ndim, device, DType::INT32);
+            } else {
+                throw std::runtime_error("Unsupported dtype!");
+            }
+        } catch(const std::exception& e) {
+            last_error = e.what();
+            return nullptr;
+        }
+    }
+
+    BaseTensor *zeros(int *shape, int ndim, const char *device, const char *dtype) {
+        try {
+            int _linear_size = 1;
+            for (int i = 0; i < ndim; i++) {
+                _linear_size *= shape[i];
+            }
+            if (std::strcmp(dtype, "float32") == 0) {
+                float *data = new float[_linear_size];
+                std::fill(data, data + _linear_size, 0.0f);
+                return new Tensor<float>(data, shape, ndim, device, DType::FLOAT32);
+            } else if (std::strcmp(dtype, "int32") == 0) {
+                int *data = new int[_linear_size];
+                std::fill(data, data + _linear_size, 0);
+                return new Tensor<int>(data, shape, ndim, device, DType::INT32);
+            } else {
+                throw std::runtime_error("Unsupported dtype!");
+            }
+        } catch(const std::exception& e) {
+            last_error = e.what();
+            return nullptr;
+        }
+    }
 }

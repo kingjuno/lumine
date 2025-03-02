@@ -1,67 +1,11 @@
 import ctypes
-import os
+from . import _TensorLib, VALID_DEVICES, VALID_DTYPES
 
 # TODO
 # 1. Fix Tensor print by returning from cpp funtion
 # 2. slicing
 # 3. Free C Tensor Memory
 # 4. Cache str representation and free memory
-
-VALID_DTYPES = {"float32", "int32"}
-VALID_DEVICES = {"cpu", "gpu"}
-
-
-class _TensorLib:
-    _build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build"))
-    _lib_path = os.path.join(_build_dir, "lumine.so")
-    if not os.path.exists(_lib_path):
-        raise RuntimeError(f"Library not found at: {_lib_path}")
-    _lib = ctypes.CDLL(_lib_path)
-
-    @classmethod
-    def _signature(cls):
-        cls._lib.create_tensor.argtypes = [
-            ctypes.c_void_p,  # data ptr
-            ctypes.POINTER(ctypes.c_int),  # shape
-            ctypes.c_int,  # dim
-            ctypes.c_char_p,  # Device
-            ctypes.c_char_p,  # Dtype
-        ]
-
-        cls._lib.create_tensor.restype = ctypes.c_void_p
-        cls._lib.print_tensor.argtypes = [ctypes.c_void_p]
-        cls._lib.print_tensor.restype = ctypes.c_char_p
-        cls._lib.get_item.argtypes = [
-            ctypes.c_void_p,
-            ctypes.POINTER(ctypes.c_int),
-            ctypes.c_int,
-        ]
-        cls._lib.get_item.restype = ctypes.c_void_p
-        cls._lib.get_shape.argtypes = [ctypes.c_void_p]
-        cls._lib.get_shape.restype = ctypes.POINTER(ctypes.c_int)
-        cls._lib.astype.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-        cls._lib.astype.restype = ctypes.c_void_p
-        cls._lib.get_data_ptr.argtypes = [ctypes.c_void_p]
-        cls._lib.get_data_ptr.restype = ctypes.c_void_p
-        cls._lib.tensor_add.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        cls._lib.tensor_add.restype = ctypes.c_void_p
-        cls._lib.tensor_sub.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        cls._lib.tensor_sub.restype = ctypes.c_void_p
-        cls._lib.tensor_mul.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        cls._lib.tensor_mul.restype = ctypes.c_void_p
-
-        cls._lib.reshape.argtypes = [
-            ctypes.c_void_p,
-            ctypes.POINTER(ctypes.c_int),
-            ctypes.c_int,
-        ]
-        cls._lib.reshape.restype = ctypes.c_void_p
-        cls._lib.get_last_error.argtypes = []
-        cls._lib.get_last_error.restype = ctypes.c_char_p
-
-    @classmethod
-    def get_library(cls):
-        return cls._lib
 
 
 class tensor:
@@ -147,13 +91,14 @@ class tensor:
         ).value.decode("utf-8")
         return f"array({arr}, dtype: {self.dtype.decode()}, device: {self.device.decode()})"
 
-    def check_error(self, tensor):
+    @classmethod
+    def check_error(cls, tensor):
         if not tensor:
-            error_msg = self._lib.get_last_error()
+            error_msg = cls._lib.get_last_error()
             if error_msg:
                 raise RuntimeError(error_msg.decode("utf-8"))
             else:
-                raise RuntimeError("Unknown error in astype function")
+                raise RuntimeError("Unknown error! Please report this issue.")
 
     @staticmethod
     def _flatten(lst):
@@ -282,7 +227,10 @@ class tensor:
         self.check_error(_tensor)
 
         return tensor(
-            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
+            _tensor=_tensor,
+            dtype=self.dtype,
+            device=self.device,
+            ndim=max(self.ndim, other.ndim),
         )
 
     def __sub__(self, other):
@@ -290,16 +238,23 @@ class tensor:
         self.check_error(_tensor)
 
         return tensor(
-            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
+            _tensor=_tensor,
+            dtype=self.dtype,
+            device=self.device,
+            ndim=max(self.ndim, other.ndim),
         )
 
     def __mul__(self, other):
         _tensor = self._lib.tensor_mul(self._tensor, other._tensor)
-        if not _tensor:
-            raise RuntimeError("Failed to multiply tensors.")
+        self.check_error(_tensor)
+
         return tensor(
-            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
+            _tensor=_tensor,
+            dtype=self.dtype,
+            device=self.device,
+            ndim=max(self.ndim, other.ndim),
         )
+
     def reshape(self, *shape):
         """
         Reshape the tensor to the given shape.
@@ -314,10 +269,9 @@ class tensor:
             raise ValueError("Shape cannot be empty.")
 
         shape_array = (ctypes.c_int * len(shape))(*shape)
-
         tensor_ptr = self._lib.reshape(self._tensor, shape_array, len(shape))
-
         self.check_error(tensor_ptr)
+
         return tensor(
             _tensor=tensor_ptr, dtype=self.dtype, device=self.device, ndim=len(shape)
         )

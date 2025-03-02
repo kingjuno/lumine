@@ -1,13 +1,13 @@
 import pytest
 import numpy as np
-from lumine import tensor
+import lumine as lm
 
 @pytest.fixture
 def generate_tensor():
     """Fixture to generate tensors for given shapes and dtype."""
     def _generate(shape, dtype="int32", min_val=0, max_val=100):
         array = np.random.randint(min_val, max_val + 1, size=shape, dtype=dtype)
-        return tensor(array.tolist()), array
+        return lm.tensor(array.tolist()), array
     return _generate
 
 @pytest.mark.parametrize("shape", [(3, 4), (2, 3, 4), (5, 5, 5)])
@@ -70,7 +70,6 @@ def test_broadcast_sum(generate_tensor, shapes):
 def test_broadcast_sub(generate_tensor, shapes):
     _tensor1, np_array1 = generate_tensor(shapes[0])
     _tensor2, np_array2 = generate_tensor(shapes[1])
-    #assert (_tensor1 - _tensor2).tolist() == (_tensor2 - _tensor1).tolist()
     assert (_tensor1 - _tensor2).tolist() == (np_array1 - np_array2).tolist()
     assert (_tensor2 - _tensor1).tolist() == (np_array2 - np_array1).tolist()
 
@@ -92,3 +91,10 @@ def test_broadcast_mul(generate_tensor, shapes):
     assert (_tensor1 * _tensor2).tolist() == (_tensor2 * _tensor1).tolist()
     assert (_tensor1 * _tensor2).tolist() == (np_array1 * np_array2).tolist()
 
+@pytest.mark.parametrize("shape", [(3, 4), (2, 3, 4), (5, 5, 5)])
+def test_ones_zeros_ones_like_zeros_like(generate_tensor, shape):
+    _tensor, np_array = generate_tensor(shape)
+    assert lm.ones(shape).tolist() == np.ones(shape).tolist()
+    assert lm.zeros(shape).tolist() == np.zeros(shape).tolist()
+    assert lm.ones_like(_tensor).tolist() == np.ones(shape).tolist()
+    assert lm.zeros_like(_tensor).tolist() == np.zeros(shape).tolist()
