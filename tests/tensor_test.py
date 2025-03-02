@@ -53,3 +53,42 @@ def test_broadcast_sum(generate_tensor, shapes):
     _tensor2, np_array2 = generate_tensor(shapes[1])
     assert (_tensor1 + _tensor2).tolist() == (_tensor2 + _tensor1).tolist()
     assert (_tensor1 + _tensor2).tolist() == (np_array1 + np_array2).tolist()
+
+
+
+@pytest.mark.parametrize(
+    "shapes",
+    [
+        ([[3, 3], [3]]),
+        ([[2, 1], [1, 3]]),
+        ([[2, 3], [1, 3]]),
+        ([[3, 1], [3]]),
+        ([[1, 3, 3], [3, 1]]),
+        ([[4, 1, 3], [1, 5, 1]]),
+    ],
+)
+def test_broadcast_sub(generate_tensor, shapes):
+    _tensor1, np_array1 = generate_tensor(shapes[0])
+    _tensor2, np_array2 = generate_tensor(shapes[1])
+    #assert (_tensor1 - _tensor2).tolist() == (_tensor2 - _tensor1).tolist()
+    assert (_tensor1 - _tensor2).tolist() == (np_array1 - np_array2).tolist()
+    assert (_tensor2 - _tensor1).tolist() == (np_array2 - np_array1).tolist()
+
+
+@pytest.mark.parametrize(
+    "shapes",
+    [
+        ([[3, 3], [3]]),
+        ([[2, 1], [1, 3]]),
+        ([[2, 3], [1, 3]]),
+        ([[3, 1], [3]]),
+        ([[1, 3, 3], [3, 1]]),
+        ([[4, 1, 3], [1, 5, 1]]),
+    ],
+)
+def test_broadcast_mul(generate_tensor, shapes):
+    _tensor1, np_array1 = generate_tensor(shapes[0])
+    _tensor2, np_array2 = generate_tensor(shapes[1])
+    assert (_tensor1 * _tensor2).tolist() == (_tensor2 * _tensor1).tolist()
+    assert (_tensor1 * _tensor2).tolist() == (np_array1 * np_array2).tolist()
+

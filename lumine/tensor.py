@@ -287,7 +287,7 @@ class tensor:
         if not _tensor:
             raise RuntimeError("Failed to subtract tensors.")
         return tensor(
-            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
         )
 
     def __mul__(self, other):
@@ -295,7 +295,7 @@ class tensor:
         if not _tensor:
             raise RuntimeError("Failed to multiply tensors.")
         return tensor(
-            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
         )
     def reshape(self, *shape):
         """

@@ -192,6 +192,90 @@ Tensor<T>* tensor_add_impl(Tensor<T>* t1, Tensor<T>* t2) {
     throw std::runtime_error("Shape mismatch for tensor addition!");
 }
 
+
+template <typename T>
+Tensor<T>* tensor_sub_impl(Tensor<T>* t1, Tensor<T>* t2) {
+    if (!t1 || !t2) {
+        throw std::runtime_error("Type mismatch in tensor_sub!");
+    }
+
+    int ndim = t1->get_ndim();
+    const int* shape1 = t1->get_shape();
+    int ndim2 = t2->get_ndim();
+    const int* shape2 = t2->get_shape();
+
+    if (ndim == ndim2 && std::equal(shape1, shape1 + ndim, shape2)) {
+        T* data_ptr = new T[t1->get_linear_size()];
+        int* shape = new int[t1->get_ndim()];
+        memcpy(data_ptr, t1->get_data_ptr(), t1->get_linear_size() * sizeof(T));
+        memcpy(shape, t1->get_shape(), t1->get_ndim() * sizeof(int));
+
+        Tensor<T>* result = new Tensor<T>(data_ptr, shape, t1->get_ndim(), "cpu", (std::is_same<T, float>::value) ? DType::FLOAT32 : DType::INT32);
+        cpu_tensor_sub(*result, *t2);
+        return result;
+    }
+
+    int* broadcast_shape = new int[std::max(ndim, ndim2)];
+    int broadcast_ndim = compute_broadcast_shape(shape1, shape2, ndim, ndim2, broadcast_shape);
+
+    if (broadcast_ndim > 0) {
+        int linear_size = 1;
+        for (int i = 0; i < broadcast_ndim; i++) {
+            linear_size *= broadcast_shape[i];
+        }
+
+        T* data_ptr = new T[linear_size];
+        Tensor<T>* result = new Tensor<T>(data_ptr, broadcast_shape, broadcast_ndim, "cpu", (std::is_same<T, float>::value) ? DType::FLOAT32 : DType::INT32);
+
+        cpu_tensor_sub_broadcast(*result, *t1, *t2, broadcast_shape, linear_size);
+        return result;
+    }
+
+    delete[] broadcast_shape;
+    throw std::runtime_error("Shape mismatch for tensor subraction!");
+}
+
+template <typename T>
+Tensor<T>* tensor_mul_impl(Tensor<T>* t1, Tensor<T>* t2) {
+    if (!t1 || !t2) {
+        throw std::runtime_error("Type mismatch in tensor_mul!");
+    }
+
+    int ndim = t1->get_ndim();
+    const int* shape1 = t1->get_shape();
+    int ndim2 = t2->get_ndim();
+    const int* shape2 = t2->get_shape();
+
+    if (ndim == ndim2 && std::equal(shape1, shape1 + ndim, shape2)) {
+        T* data_ptr = new T[t1->get_linear_size()];
+        int* shape = new int[t1->get_ndim()];
+        memcpy(data_ptr, t1->get_data_ptr(), t1->get_linear_size() * sizeof(T));
+        memcpy(shape, t1->get_shape(), t1->get_ndim() * sizeof(int));
+
+        Tensor<T>* result = new Tensor<T>(data_ptr, shape, t1->get_ndim(), "cpu", (std::is_same<T, float>::value) ? DType::FLOAT32 : DType::INT32);
+        cpu_tensor_mul(*result, *t2);
+        return result;
+    }
+
+    int* broadcast_shape = new int[std::max(ndim, ndim2)];
+    int broadcast_ndim = compute_broadcast_shape(shape1, shape2, ndim, ndim2, broadcast_shape);
+
+    if (broadcast_ndim > 0) {
+        int linear_size = 1;
+        for (int i = 0; i < broadcast_ndim; i++) {
+            linear_size *= broadcast_shape[i];
+        }
+
+        T* data_ptr = new T[linear_size];
+        Tensor<T>* result = new Tensor<T>(data_ptr, broadcast_shape, broadcast_ndim, "cpu", (std::is_same<T, float>::value) ? DType::FLOAT32 : DType::INT32);
+
+        cpu_tensor_mul_broadcast(*result, *t1, *t2, broadcast_shape, linear_size);
+        return result;
+    }
+
+    delete[] broadcast_shape;
+    throw std::runtime_error("Shape mismatch for tensor multiplication!");
+}
 // Explicit instantiation for supported types
 template class Tensor<float>;
 template class Tensor<int>;
@@ -310,41 +394,15 @@ extern "C" {
         DType dtype1 = _this->get_dtype_enum();
         DType dtype2 = _other->get_dtype_enum();
 
-        if(dtype1 == DType::FLOAT32 || dtype2 == DType::FLOAT32)
-        {
+        if (dtype1 == DType::FLOAT32 || dtype2 == DType::FLOAT32) {
             Tensor<float>* t1 = dynamic_cast<Tensor<float>*>(const_cast<BaseTensor*>(_this));
             Tensor<float>* t2 = dynamic_cast<Tensor<float>*>(const_cast<BaseTensor*>(_other));
-
-            if (!t1 || !t2) {
-                throw std::runtime_error("Type mismatch in tensor_sub!");
-            }
-            float* data_ptr = new float[t1->get_linear_size()];
-            int* shape = new int[t1->get_ndim()];
-
-            memcpy(data_ptr, t1->get_data_ptr(), t1->get_linear_size()*sizeof(float));
-            memcpy(shape, t1->get_shape(), t1->get_ndim()*sizeof(int));
-
-            Tensor<float>* result = new Tensor<float>(data_ptr, shape, t1->get_ndim(),"cpu", DType::FLOAT32);
-            cpu_tensor_sub(*result, *t2);
-            return result;
-
+            return tensor_sub_impl(t1, t2);
         }
-        else if(dtype1 == DType::INT32 || dtype2 == DType::INT32) {
-            Tensor<int>* t1 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*> (_this));
-            Tensor<int>* t2 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*> (_other));
-
-            if (!t1 || !t2) {
-                throw std::runtime_error("Type mismatch in tensor_sub!");
-            }
-            int* data_ptr = new int[t1->get_linear_size()];
-            int* shape = new int[t1->get_ndim()];
-
-            memcpy(data_ptr, t1->get_data_ptr(), t1->get_linear_size()*sizeof(int));
-            memcpy(shape, t1->get_shape(), t1->get_ndim()*sizeof(int));
-
-            Tensor<int>* result = new Tensor<int>(data_ptr, shape, t1->get_ndim(),"cpu", DType::INT32);
-            cpu_tensor_sub(*result, *t2);
-            return result;
+        else if (dtype1 == DType::INT32 || dtype2 == DType::INT32) {
+            Tensor<int>* t1 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*>(_this));
+            Tensor<int>* t2 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*>(_other));
+            return tensor_sub_impl(t1, t2);
         }
         else {
             throw std::runtime_error("Unsupported dtype!");
@@ -356,41 +414,15 @@ extern "C" {
         DType dtype1 = _this->get_dtype_enum();
         DType dtype2 = _other->get_dtype_enum();
 
-        if(dtype1 == DType::FLOAT32 || dtype2 == DType::FLOAT32)
-        {
+        if (dtype1 == DType::FLOAT32 || dtype2 == DType::FLOAT32) {
             Tensor<float>* t1 = dynamic_cast<Tensor<float>*>(const_cast<BaseTensor*>(_this));
             Tensor<float>* t2 = dynamic_cast<Tensor<float>*>(const_cast<BaseTensor*>(_other));
-            
-            if (!t1 || !t2) {
-                throw std::runtime_error("Type mismatch in tensor_mul!");
-            }
-            float* data_ptr = new float[t1->get_linear_size()];
-            int* shape = new int[t1->get_ndim()];
-
-            memcpy(data_ptr, t1->get_data_ptr(), t1->get_linear_size()*sizeof(float));
-            memcpy(shape, t1->get_shape(), t1->get_ndim()*sizeof(int));
-
-            Tensor<float>* result = new Tensor<float>(data_ptr, shape, t1->get_ndim(),"cpu", DType::FLOAT32);
-            cpu_tensor_mul(*result, *t2);
-            return result;
-        
+            return tensor_mul_impl(t1, t2);
         }
-        else if(dtype1 == DType::INT32 || dtype2 == DType::INT32){
-            Tensor<int>* t1 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*> (_this));
-            Tensor<int>* t2 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*> (_other));
-            
-            if (!t1 || !t2) {
-                throw std::runtime_error("Type mismatch in tensor_mul!");
-            }
-            int* data_ptr = new int[t1->get_linear_size()];
-            int* shape = new int[t1->get_ndim()];
-
-            memcpy(data_ptr, t1->get_data_ptr(), t1->get_linear_size()*sizeof(int));
-            memcpy(shape, t1->get_shape(), t1->get_ndim()*sizeof(int));
-
-            Tensor<int>* result = new Tensor<int>(data_ptr, shape, t1->get_ndim(),"cpu", DType::INT32);
-            cpu_tensor_mul(*result, *t2);
-            return result;
+        else if (dtype1 == DType::INT32 || dtype2 == DType::INT32) {
+            Tensor<int>* t1 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*>(_this));
+            Tensor<int>* t2 = dynamic_cast<Tensor<int>*>(const_cast<BaseTensor*>(_other));
+            return tensor_mul_impl(t1, t2);
         }
         else {
             throw std::runtime_error("Unsupported dtype!");
