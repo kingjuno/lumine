@@ -47,14 +47,17 @@ class _TensorLib:
         cls._lib.tensor_add.restype = ctypes.c_void_p
         cls._lib.tensor_sub.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         cls._lib.tensor_sub.restype = ctypes.c_void_p
-        cls._lib.get_last_error.argtypes = []
-        cls._lib.get_last_error.restype = ctypes.c_char_p
+        cls._lib.tensor_mul.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        cls._lib.tensor_mul.restype = ctypes.c_void_p
+
         cls._lib.reshape.argtypes = [
             ctypes.c_void_p,
             ctypes.POINTER(ctypes.c_int),
             ctypes.c_int,
         ]
         cls._lib.reshape.restype = ctypes.c_void_p
+        cls._lib.get_last_error.argtypes = []
+        cls._lib.get_last_error.restype = ctypes.c_char_p
 
     @classmethod
     def get_library(cls):
@@ -279,7 +282,7 @@ class tensor:
         self.check_error(_tensor)
 
         return tensor(
-            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
         )
 
     def __sub__(self, other):
@@ -287,9 +290,16 @@ class tensor:
         self.check_error(_tensor)
 
         return tensor(
-            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=self.ndim
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
         )
 
+    def __mul__(self, other):
+        _tensor = self._lib.tensor_mul(self._tensor, other._tensor)
+        if not _tensor:
+            raise RuntimeError("Failed to multiply tensors.")
+        return tensor(
+            _tensor=_tensor, dtype=self.dtype, device=self.device, ndim=max(self.ndim, other.ndim)
+        )
     def reshape(self, *shape):
         """
         Reshape the tensor to the given shape.
