@@ -96,7 +96,7 @@ class tensor:
         if not tensor:
             error_msg = cls._lib.get_last_error()
             if error_msg:
-                raise RuntimeError(error_msg.decode("utf-8"))
+                raise ValueError(error_msg.decode("utf-8"))
             else:
                 raise RuntimeError("Unknown error! Please report this issue.")
 
@@ -274,4 +274,15 @@ class tensor:
 
         return tensor(
             _tensor=tensor_ptr, dtype=self.dtype, device=self.device, ndim=len(shape)
+        )
+    
+    def __matmul__(self, other):
+        _tensor = self._lib.tensor_matmul(self._tensor, other._tensor)
+        self.check_error(_tensor)
+
+        return tensor(
+            _tensor=_tensor,
+            dtype=self.dtype,
+            device=self.device,
+            ndim=max(self.ndim, other.ndim),
         )

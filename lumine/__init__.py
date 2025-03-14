@@ -66,6 +66,8 @@ class _TensorLib:
             ctypes.c_char_p,
         ]
         cls._lib.zeros.restype = ctypes.c_void_p
+        cls._lib.tensor_matmul.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        cls._lib.tensor_matmul.restype = ctypes.c_void_p
 
     @classmethod
     def get_library(cls):
@@ -144,3 +146,6 @@ def zeros_like(tensor):
         dtype=tensor.dtype.decode("utf-8"),
         device=tensor.device.decode("utf-8"),
     )
+
+def matmul(_this, _other):
+    return _this @ _other
