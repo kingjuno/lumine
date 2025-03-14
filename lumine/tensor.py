@@ -82,14 +82,14 @@ class tensor:
         """
         arr = ctypes.cast(
             self._lib.print_tensor(self._tensor), ctypes.c_char_p
-        ).value.decode("utf-8")
+        ).value.decode("utf-8")+'\n'
         return arr
 
     def __repr__(self):
         arr = ctypes.cast(
             self._lib.print_tensor(self._tensor), ctypes.c_char_p
         ).value.decode("utf-8")
-        return f"array({arr}, dtype: {self.dtype.decode()}, device: {self.device.decode()})"
+        return f"array({arr}, dtype: {self.dtype.decode()}, device: {self.device.decode()})\n"
 
     @classmethod
     def check_error(cls, tensor):

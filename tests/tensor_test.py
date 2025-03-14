@@ -9,7 +9,7 @@ def generate_tensor():
 
     def _generate(shape, dtype="int32", min_val=0, max_val=100):
         array = np.random.randint(min_val, max_val + 1, size=shape, dtype=dtype)
-        return lm.tensor(array.tolist()), array
+        return lm.tensor(array.tolist(), dtype=dtype), array
 
     return _generate
 
@@ -135,12 +135,29 @@ def test_ones_zeros_ones_like_zeros_like(generate_tensor, shape):
             (2, 3, 4, 5),
             False,
         ),  # Incompatible batch size, should raise an error
+        ((1, 4, 3), (3, 5), True),  # Broadcasting leading batch dim, valid
+        ((1, 2, 3, 4), (4, 5), True),  # Implicit broadcasting with batch dim
+        ((3, 4, 5), (4, 5), False),  # Mismatched leading batch dim
+        ((1, 2, 3, 4), (2, 1, 4, 5), True),  # Broadcasting across batch dim
+        ((2, 3, 4, 5), (1, 3, 5, 6), True),  # Complex broadcasting
+        ((2, 3, 4, 5), (3, 1, 5, 6), False),  # Should fail due to batch mismatch
+        ((1, 1, 3, 4), (3, 4, 5), True),  # Extra singleton batch dim
+        ((2, 3, 4, 5), (3, 4, 5, 6), False),  # Batch size mismatch, should fail
+        ((2, 3, 4, 5), (2, 1, 5, 6), True),  # Valid broadcasting in batch dim
+        ((1, 1, 1, 4, 5), (1, 1, 4, 5, 6), True),  # Deeply broadcasted batch
+        ((5, 4, 3, 2), (5, 4, 2, 3), True),  # Deeply batched valid case
+        ((3, 2, 4, 5), (2, 4, 5, 6), False),  # First batch dim mismatch
+        ((1, 1, 1, 3, 4), (3, 4, 5), True),  # Extra singleton batch dims (valid)
+        ((2, 3, 4), (1, 4, 5), True),  # 1st tensor broadcasted in batch
+        ((2, 3, 4), (3, 4, 5), False),  # 1st tensor batch mismatch
+        ((3, 4), (4, 5), True),  # Simple 2D matmul case
+        ((10, 3, 4), (10, 4, 5), True),  # Large batch size
+        ((10, 3, 4), (1, 4, 5), True),  # Large batch with broadcasting
     ],
 )
 def test_matmul(generate_tensor, a_shape, b_shape, error):
     a_tensor, a_np = generate_tensor(a_shape)
     b_tensor, b_np = generate_tensor(b_shape)
-
     try:
         result = lm.matmul(a_tensor, b_tensor)
         expected = np.matmul(a_np, b_np)

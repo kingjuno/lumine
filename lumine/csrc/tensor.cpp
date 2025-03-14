@@ -7,52 +7,11 @@
 #include "utils/stream.h"
 #include "cpu/math.h"
 #include <cstdlib>
-
-#if defined(_WIN32)  // Windows
-#include <windows.h>
-
-int get_cache_size() {
-    DWORD buffer_size = 0;
-    GetLogicalProcessorInformationEx(RelationCache, NULL, &buffer_size);
-    SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX* buffer = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)malloc(buffer_size);
-    GetLogicalProcessorInformationEx(RelationCache, buffer, &buffer_size);
-
-    int cache_size = buffer->Cache.CacheSize;
-    free(buffer);
-    return cache_size;
-}
-
-#elif defined(__linux__)
-#include <fstream>
-
-int get_cache_size() {
-    std::ifstream file("/sys/devices/system/cpu/cpu0/cache/index0/size");
-    if (!file) {
-        return 32 * 1024;
-    }
-    int cache_size;
-    file >> cache_size;
-    return cache_size * 1024;
-}
-
-#elif defined(__APPLE__)
-#include <sys/sysctl.h>
-
-int get_cache_size() {
-    size_t cache_size;
-    size_t size = sizeof(cache_size);
-    sysctlbyname("hw.l1dcachesize", &cache_size, &size, NULL, 0);
-    return cache_size;
-}
-
-#else  // Fallback
-int get_cache_size() {
-    return 32 * 1024;
-}
-#endif
+#include <immintrin.h>
+#include <cstring>
+#include <algorithm>
 
 thread_local std::string last_error;
-const int BLOCK_SIZE = get_cache_size();
 
 inline std::string DTypeToString(DType dt) {
     switch (dt) {
@@ -326,30 +285,13 @@ Tensor<T>* tensor_mul_impl(Tensor<T>* t1, Tensor<T>* t2) {
 
 template <typename T>
 Tensor<T>* tensor_matmul_impl(Tensor<T>& A, Tensor<T>& B) {
-    // cache efficient implementation ig?
-    // room for optimization still there
-    // TODO: check for possible optimization or better implementation
-    // whatever that makes this faster, the better
     const int* shapeA = A.get_shape();
     const int* shapeB = B.get_shape();
     int dimsA = A.get_ndim();
     int dimsB = B.get_ndim();
 
     if (dimsA < 2 || dimsB < 2) {
-        throw std::runtime_error("Both tensors must have at least 2 dimensions for matrix multiplication.");
-    }
-
-    int batch_dims = std::max(dimsA, dimsB) - 2;
-    int batch_shape[batch_dims];
-
-    for (int i = 0; i < batch_dims; i++) {
-        int dimA = (i < dimsA - 2) ? shapeA[i] : 1;
-        int dimB = (i < dimsB - 2) ? shapeB[i] : 1;
-
-        if (dimA != dimB && dimA != 1 && dimB != 1) {
-            throw std::runtime_error("Batch dimensions are not broadcastable.");
-        }
-        batch_shape[i] = std::max(dimA, dimB);
+        throw std::runtime_error("Both tensors must have at least 2 dimensions.");
     }
 
     int N = shapeA[dimsA - 2];
@@ -360,56 +302,124 @@ Tensor<T>* tensor_matmul_impl(Tensor<T>& A, Tensor<T>& B) {
         throw std::runtime_error("Matrix multiplication shape mismatch.");
     }
 
+    int result_ndim = std::max(dimsA, dimsB);
+    int batch_dims = result_ndim - 2;
+    std::vector<int> batch_shape(batch_dims > 0 ? batch_dims : 1);
     int batch_size = 1;
+
     for (int i = 0; i < batch_dims; i++) {
+        int dimA_idx = i - (batch_dims - (dimsA - 2));
+        int dimB_idx = i - (batch_dims - (dimsB - 2));
+        int dimA = (dimA_idx >= 0) ? shapeA[dimA_idx] : 1;
+        int dimB = (dimB_idx >= 0) ? shapeB[dimB_idx] : 1;
+
+        if (dimA != dimB && dimA != 1 && dimB != 1) {
+            throw std::runtime_error("Batch dimensions not broadcastable.");
+        }
+        batch_shape[i] = std::max(dimA, dimB);
         batch_size *= batch_shape[i];
     }
 
-    T* result = new T[batch_size * N * M]();
-
-    T* A_data = static_cast<T*>(A.get_data_ptr());
-    T* B_data = static_cast<T*>(B.get_data_ptr());
-
-    #pragma omp parallel for collapse(3)
-    for (int b = 0; b < batch_size; ++b) {
-        int batch_A = 0, batch_B = 0;
-        int temp_b = b;
-        for (int i = batch_dims - 1; i >= 0; i--) {
-            int idx = temp_b % batch_shape[i];
-            temp_b /= batch_shape[i];
-
-            batch_A = (shapeA[i] == batch_shape[i]) ? batch_A * shapeA[i] + idx : batch_A;
-            batch_B = (shapeB[i] == batch_shape[i]) ? batch_B * shapeB[i] + idx : batch_B;
-        }
-
-        for (int i = 0; i < N; i += BLOCK_SIZE) {
-            for (int j = 0; j < M; j += BLOCK_SIZE) {
-                for (int k = 0; k < K; k += BLOCK_SIZE) {
-                    for (int ii = i; ii < std::min(i + BLOCK_SIZE, N); ++ii) {
-                        for (int kk = k; kk < std::min(k + BLOCK_SIZE, K); ++kk) {
-                            T temp = A_data[batch_A * (N * K) + ii * K + kk];
-
-                            for (int jj = j; jj < std::min(j + BLOCK_SIZE, M); ++jj) {
-                                result[b * (N * M) + ii * M + jj] += temp * B_data[batch_B * (K * M) + kk * M + jj];
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    int result_shape[batch_dims + 2];
+    std::vector<int> result_shape(result_ndim);
     for (int i = 0; i < batch_dims; i++) {
         result_shape[i] = batch_shape[i];
     }
     result_shape[batch_dims] = N;
     result_shape[batch_dims + 1] = M;
 
-    return new Tensor<T>(result, result_shape, batch_dims + 2, "cpu",
+    T* result_data = new T[batch_size * N * M]();
+    T* A_data = static_cast<T*>(A.get_data_ptr());
+    T* B_data = static_cast<T*>(B.get_data_ptr());
+
+    std::vector<int> A_strides(dimsA);
+    std::vector<int> B_strides(dimsB);
+    A_strides[dimsA - 1] = 1;
+    B_strides[dimsB - 1] = 1;
+    for (int i = dimsA - 2; i >= 0; i--) {
+        A_strides[i] = A_strides[i + 1] * shapeA[i + 1];
+    }
+    for (int i = dimsB - 2; i >= 0; i--) {
+        B_strides[i] = B_strides[i + 1] * shapeB[i + 1];
+    }
+
+    // Cache blocking parameters (tuned for L1/L2 cache)
+    constexpr int BLOCK_N = 64;
+    constexpr int BLOCK_M = 64;
+    constexpr int BLOCK_K = 32;
+
+    // Parallelize over batches
+    #pragma omp parallel for schedule(dynamic)
+    for (int b = 0; b < batch_size; ++b) {
+        std::vector<int> batch_indices(batch_dims);
+        int temp_b = b;
+        for (int i = batch_dims - 1; i >= 0; i--) {
+            batch_indices[i] = temp_b % batch_shape[i];
+            temp_b /= batch_shape[i];
+        }
+
+        int A_batch_idx = 0, B_batch_idx = 0;
+        for (int i = 0; i < batch_dims; i++) {
+            int dimA_idx = i - (batch_dims - (dimsA - 2));
+            int dimB_idx = i - (batch_dims - (dimsB - 2));
+            if (dimA_idx >= 0) {
+                int A_idx = (shapeA[dimA_idx] == 1) ? 0 : batch_indices[i];
+                A_batch_idx += A_idx * A_strides[dimA_idx];
+            }
+            if (dimB_idx >= 0) {
+                int B_idx = (shapeB[dimB_idx] == 1) ? 0 : batch_indices[i];
+                B_batch_idx += B_idx * B_strides[dimB_idx];
+            }
+        }
+
+        T* C_batch = result_data + b * N * M;
+        T* B_trans = new T[K * M];
+        for (int i = 0; i < K; i++) {
+            for (int j = 0; j < M; j++) {
+                B_trans[j * K + i] = B_data[B_batch_idx + i * B_strides[dimsB - 2] + j];
+            }
+        }
+
+        // Blocked matrix multiplication with AVX for float
+        for (int i = 0; i < N; i += BLOCK_N) {
+            for (int j = 0; j < M; j += BLOCK_M) {
+                for (int k = 0; k < K; k += BLOCK_K) {
+                    int i_max = std::min(i + BLOCK_N, N);
+                    int j_max = std::min(j + BLOCK_M, M);
+                    int k_max = std::min(k + BLOCK_K, K);
+
+                    if constexpr (std::is_same_v<T, float>) {
+                        // AVX optimization for float
+                        for (int ii = i; ii < i_max; ii++) {
+                            for (int jj = j; jj < j_max; jj += 8) {
+                                __m256 c_vec = _mm256_loadu_ps(C_batch + ii * M + jj);
+                                for (int kk = k; kk < k_max; kk++) {
+                                    __m256 a_vec = _mm256_set1_ps(A_data[A_batch_idx + ii * A_strides[dimsA - 2] + kk]);
+                                    __m256 b_vec = _mm256_loadu_ps(B_trans + jj * K + kk);
+                                    c_vec = _mm256_fmadd_ps(a_vec, b_vec, c_vec);
+                                }
+                                _mm256_storeu_ps(C_batch + ii * M + jj, c_vec);
+                            }
+                        }
+                    } else {
+                        for (int ii = i; ii < i_max; ii++) {
+                            for (int jj = j; jj < j_max; jj++) {
+                                T sum = 0;
+                                for (int kk = k; kk < k_max; kk++) {
+                                    sum += A_data[A_batch_idx + ii * A_strides[dimsA - 2] + kk] *
+                                           B_trans[jj * K + kk];
+                                }
+                                C_batch[ii * M + jj] += sum;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        delete[] B_trans;
+    }
+    return new Tensor<T>(result_data, result_shape.data(), result_ndim, "cpu",
                          std::is_same<T, float>::value ? DType::FLOAT32 : DType::INT32);
 }
-
 
 // Explicit instantiation for supported types
 template class Tensor<float>;
