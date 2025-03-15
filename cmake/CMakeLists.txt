@@ -19,7 +19,7 @@ include_directories(lumine/csrc/cpu)
 include_directories(lumine/csrc/utils)
 
 # Add position-independent code flag
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -mavx2 -mfma -fopenmp -O3 -march=native -ffast-math")
 
 # Create shared library
 add_library(tensor SHARED ${TENSOR_SRC} ${STREAM_SRC} ${MATH_SRC})

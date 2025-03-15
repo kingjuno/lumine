@@ -69,6 +69,8 @@ extern "C" {
     BaseTensor *tensor_sub(const BaseTensor* tensor1, const BaseTensor* tensor2);
     BaseTensor *tensor_mul(const BaseTensor* tensor1, const BaseTensor* tensor2);
     BaseTensor *reshape(BaseTensor* tensor, int* shape, int ndim);
+    BaseTensor *ones(int* shape, int ndim, const char* device, const char* dtype);
+    BaseTensor *zeros(int* shape, int ndim, const char* device, const char* dtype);
 }
 
 #endif // TENSOR_H
